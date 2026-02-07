@@ -14,14 +14,15 @@ app.get("/", (req, res) => {
 app.post("/run-agent", async (req, res) => {
   const { prompt_id, brand, prompt, plan_type } = req.body;
 
-  console.log("Received job:", req.body);
+  console.log("=== /run-agent TETİKLENDİ ===");
+  console.log("Payload:", req.body);
 
-  // 🚀 ÇOK ÖNEMLİ: Railway timeout yemesin diye
-  // İSTEĞİ HEMEN KABUL EDİYORUZ
+  // ⛔ Railway timeout yemesin diye hemen cevap dönüyoruz
   res.json({ accepted: true, prompt_id });
 
-  // ======== ARKA PLANDA (ASYNC) İŞİ İŞLİYORUZ ========
   try {
+    console.log("→ Figma Agent başlıyor...");
+
     const result = await runFigmaAgent({
       prompt_id,
       brand,
@@ -29,34 +30,35 @@ app.post("/run-agent", async (req, res) => {
       plan_type,
     });
 
-    console.log("Figma result:", result);
+    console.log("→ Figma Agent sonucu:", result);
 
-    // ✅ PROMPTS TABLOSUNU GÜNCELLE
+    console.log("→ Supabase güncelleniyor...");
+
     const { error } = await supabase
       .from("prompts")
       .update({
         status: "completed",
         figma_file_url: result.figma_file_url,
-        response: result, // JSON olarak saklıyoruz
+        response: result,
         completed_at: new Date().toISOString(),
       })
       .eq("id", prompt_id);
 
     if (error) {
-      console.error("DB update error:", error);
-      // Hata olursa failed işaretle
+      console.error("❌ DB update HATASI:", error);
+
       await supabase
         .from("prompts")
         .update({ status: "failed" })
         .eq("id", prompt_id);
+
       return;
     }
 
-    console.log("Job completed:", prompt_id);
+    console.log("✅ Job TAMAMLANDI:", prompt_id);
   } catch (err) {
-    console.error("Figma job failed:", err);
+    console.error("❌ Figma job FAILED:", err);
 
-    // ❌ Hata olursa DB’de failed işaretle
     await supabase
       .from("prompts")
       .update({ status: "failed" })
