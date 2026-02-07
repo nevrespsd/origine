@@ -1,11 +1,10 @@
-import fetch from "node-fetch";
-
 const FIGMA_API = "https://api.figma.com/v1";
 
 export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
   console.log("=== Figma Agent Başladı ===");
   console.log({ prompt_id, brand, prompt, plan_type });
 
+  // 1) Yeni bir Figma dosyası oluştur
   const createFileRes = await fetch(`${FIGMA_API}/files`, {
     method: "POST",
     headers: {
@@ -23,11 +22,9 @@ export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
   console.log("Figma HTTP Status:", status);
   console.log("Figma Raw Response:", JSON.stringify(fileData, null, 2));
 
-  // Key'i mümkün olan HER YERDEN deniyoruz
   const fileKey =
     fileData?.meta?.key ||
     fileData?.key ||
-    fileData?.document?.key ||
     null;
 
   if (!fileKey) {
@@ -39,7 +36,7 @@ export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
 
   console.log("Bulunan fileKey:", fileKey);
 
-  // Boş frame ekleme denemesi (ops formatını da güvenli hale getirdik)
+  // 2) Frame eklemeyi dene
   try {
     const patchRes = await fetch(`${FIGMA_API}/files/${fileKey}`, {
       method: "PATCH",
