@@ -6,9 +6,15 @@
       "start": "node server.js"
     },
     "dependencies": {
+      "sharp": "^0.33.2",
+      "svg2pdf.js": "^2.2.2"
       "express": "^4.19.2",
       "@supabase/supabase-js": "^2.39.3",
       "node-fetch": "^3.3.2"
     }
+    "engines": {
+      "node": ">=18.0.0"
+    }
+    
   }
   
