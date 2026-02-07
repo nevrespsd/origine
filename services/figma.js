@@ -5,6 +5,7 @@ const FIGMA_API = "https://api.figma.com/v1";
 export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
   console.log("Running Figma Agent:", { prompt_id, brand, prompt, plan_type });
 
+  // 1) Yeni bir Figma dosyası oluştur
   const createFileRes = await fetch(`${FIGMA_API}/files`, {
     method: "POST",
     headers: {
@@ -17,7 +18,44 @@ export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
   });
 
   const fileData = await createFileRes.json();
-  const fileKey = fileData.key;
+
+  // ✅ DÜZELTİLMİŞ SATIRLAR (ÖNEMLİ)
+  console.log("Figma raw response:", fileData);
+
+  const fileKey = fileData.meta?.key || fileData.key;
+
+  if (!fileKey) {
+    throw new Error(
+      "Figma file key bulunamadı: " + JSON.stringify(fileData)
+    );
+  }
+
+  // 2) Boş frame ekle (isteğe bağlı)
+  await fetch(`${FIGMA_API}/files/${fileKey}`, {
+    method: "PATCH",
+    headers: {
+      "X-Figma-Token": process.env.FIGMA_TOKEN,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      ops: [
+        {
+          op: "add",
+          path: "document/children",
+          value: {
+            type: "FRAME",
+            name: `Brand Kit - ${brand}`,
+            absoluteBoundingBox: {
+              x: 0,
+              y: 0,
+              width: 1440,
+              height: 1024
+            }
+          }
+        }
+      ]
+    })
+  });
 
   return {
     message: "Figma file created",
@@ -27,3 +65,4 @@ export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
     plan: plan_type
   };
 }
+
