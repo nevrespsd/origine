@@ -8,7 +8,7 @@ export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
   console.log({ prompt_id, brand, prompt, plan_type });
 
   // 1) Yeni bir Figma dosyası oluştur
-  const createFileRes = await fetch(`${FIGMA_API}/files`, {
+  const createFileRes = await fetch(`${FIGMA_API}/files?draft=true`, {
     method: "POST",
     headers: {
       "X-Figma-Token": process.env.FIGMA_TOKEN,
@@ -17,7 +17,7 @@ export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
     body: JSON.stringify({
       name: `Origine - ${brand} - ${prompt_id}`
     })
-  });
+  });  
 
   const status = createFileRes.status;
   const fileData = await createFileRes.json();
