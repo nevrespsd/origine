@@ -1,5 +1,8 @@
 const FIGMA_API = "https://api.figma.com/v1";
 
+console.log("FIGMA_TOKEN mevcut mu?:", !!process.env.FIGMA_TOKEN);
+console.log("FIGMA_TOKEN uzunluğu:", process.env.FIGMA_TOKEN?.length);
+
 export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
   console.log("=== Figma Agent Başladı ===");
   console.log({ prompt_id, brand, prompt, plan_type });
