@@ -1,17 +1,30 @@
 const FIGMA_API = "https://api.figma.com/v1";
 
-const TEMPLATE_FILE_KEY = "m52UZKuumey6VMJHktCUQ8"; // <-- SENİN TEAM DOSYAN
+// Senin erişebildiğimiz template dosyan
+const TEMPLATE_FILE_KEY = "m52UZKuumey6VMJHktCUQ8";
 
 export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
-  console.log("=== Figma Agent Başladı ===");
+  console.log("=== Figma Agent (B PLAN) Başladı ===");
   console.log({ prompt_id, brand, prompt, plan_type });
 
-  console.log("FIGMA_TOKEN mevcut mu?:", !!process.env.FIGMA_TOKEN);
-  console.log("FIGMA_TOKEN uzunluğu:", process.env.FIGMA_TOKEN?.length);
+  // 1) TEMPLATE DOSYASINI OKU (senin az önce yaptığın şeyin aynısı)
+  const templateRes = await fetch(
+    `${FIGMA_API}/files/${TEMPLATE_FILE_KEY}`,
+    {
+      headers: { "X-Figma-Token": process.env.FIGMA_TOKEN },
+    }
+  );
 
-  // 1) TEMPLATE DOSYASINI DUPLICATE ET
-  const duplicateRes = await fetch(
-    `${FIGMA_API}/files/${TEMPLATE_FILE_KEY}/duplicate`,
+  if (templateRes.status !== 200) {
+    throw new Error(`Template okunamadı: ${templateRes.status}`);
+  }
+
+  const templateData = await templateRes.json();
+  console.log("Template okundu");
+
+  // 2) YENİ BOŞ DOSYA OLUŞTUR
+  const createRes = await fetch(
+    `${FIGMA_API}/files`,
     {
       method: "POST",
       headers: {
@@ -19,65 +32,40 @@ export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: `Origine - ${brand} - ${prompt_id}`,
+        name: `Origine — ${brand} — ${prompt_id}`,
       }),
     }
   );
 
-  const status = duplicateRes.status;
-  const data = await duplicateRes.json();
+  const createData = await createRes.json();
+  const newFileKey = createData.key;
 
-  console.log("Duplicate HTTP Status:", status);
-  console.log("Duplicate Response:", JSON.stringify(data, null, 2));
+  console.log("Yeni dosya oluşturuldu:", newFileKey);
 
-  const fileKey = data?.key;
+  // 3) TEMPLATE'IN İLK SAYFASINI YENİ DOSYAYA KOPYALA
+  await fetch(`${FIGMA_API}/files/${newFileKey}`, {
+    method: "PATCH",
+    headers: {
+      "X-Figma-Token": process.env.FIGMA_TOKEN,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      ops: [
+        {
+          op: "add",
+          path: "document/children",
+          value: templateData.document.children[0],
+        },
+      ],
+    }),
+  });
 
-  if (!fileKey) {
-    throw new Error(
-      "Figma fileKey bulunamadı! Yanıt:\n" +
-        JSON.stringify(data, null, 2)
-    );
-  }
-
-  console.log("Yeni dosya oluşturuldu. fileKey:", fileKey);
-
-  // 2) (Opsiyonel) Frame ekleme örneği
-  try {
-    const patchRes = await fetch(`${FIGMA_API}/files/${fileKey}`, {
-      method: "PATCH",
-      headers: {
-        "X-Figma-Token": process.env.FIGMA_TOKEN,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        ops: [
-          {
-            op: "add",
-            path: "document/children",
-            value: {
-              type: "FRAME",
-              name: `Brand Kit - ${brand}`,
-              absoluteBoundingBox: {
-                x: 0,
-                y: 0,
-                width: 1440,
-                height: 1024,
-              },
-            },
-          },
-        ],
-      }),
-    });
-
-    console.log("Frame ekleme status:", patchRes.status);
-  } catch (e) {
-    console.error("Frame eklenirken hata:", e);
-  }
+  console.log("Template içeriği kopyalandı");
 
   return {
-    message: "Figma file duplicated",
-    figma_file_url: `https://www.figma.com/file/${fileKey}`,
-    file_key: fileKey,
+    message: "Figma file created from template",
+    figma_file_url: `https://www.figma.com/file/${newFileKey}`,
+    file_key: newFileKey,
     created_for: brand,
     plan: plan_type,
   };
