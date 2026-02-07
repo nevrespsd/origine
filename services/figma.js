@@ -7,10 +7,10 @@ export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
   console.log("=== Figma Agent Başladı ===");
   console.log({ prompt_id, brand, prompt, plan_type });
 
-  // 1) YENİ FİGMA DOSYASI AÇ
+  // 1) YENİ FİGMA DOSYASI AÇ (DÜZELTİLDİ: ?draft=true EKLENDİ)
   console.log("→ Yeni Figma dosyası oluşturuluyor...");
 
-  const createRes = await fetch(`${FIGMA_API}/files`, {
+  const createRes = await fetch(`${FIGMA_API}/files?draft=true`, {
     method: "POST",
     headers: {
       "X-Figma-Token": TOKEN,
@@ -34,7 +34,7 @@ export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
   // 2) ANA FRAME EKLE
   console.log("→ Ana Frame ekleniyor...");
 
-  await fetch(`${FIGMA_API}/files/${newFileKey}`, {
+  const patchRes = await fetch(`${FIGMA_API}/files/${newFileKey}`, {
     method: "PATCH",
     headers: {
       "X-Figma-Token": TOKEN,
@@ -59,6 +59,8 @@ export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
       ],
     }),
   });
+
+  console.log("Frame ekleme status:", patchRes.status);
 
   return {
     message: "Figma file created",
