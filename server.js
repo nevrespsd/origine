@@ -1,27 +1,19 @@
 import express from "express";
-import { createSupabaseClient } from "./services/supabase.js";
+import bodyParser from "body-parser";
 import { runFigmaAgent } from "./services/figma.js";
+import { updatePromptStatus } from "./services/supabase.js";
 
 const app = express();
-app.use(express.json());
-
-const supabase = createSupabaseClient();
-
-app.get("/", (req, res) => {
-  res.json({ status: "origine-agent running" });
-});
+app.use(bodyParser.json());
 
 app.post("/run-agent", async (req, res) => {
-  const { prompt_id, brand, prompt, plan_type } = req.body;
-
-  console.log("=== /run-agent TETİKLENDİ ===");
+  console.log("\n=== /run-agent TETİKLENDİ ===");
   console.log("Payload:", req.body);
 
-  // ⛔ Railway timeout yemesin diye hemen cevap dönüyoruz
-  res.json({ accepted: true, prompt_id });
+  const { prompt_id, brand, prompt, plan_type } = req.body;
 
   try {
-    console.log("→ Figma Agent başlıyor...");
+    console.log("→ Figma Agent başlatılıyor...");
 
     const result = await runFigmaAgent({
       prompt_id,
@@ -30,39 +22,28 @@ app.post("/run-agent", async (req, res) => {
       plan_type,
     });
 
-    console.log("→ Figma Agent sonucu:", result);
+    console.log("✅ Figma Agent BAŞARILI:", result);
 
-    console.log("→ Supabase güncelleniyor...");
+    // 🔹 ÖNEMLİ: Supabase'e SUCCESS yazıyoruz
+    await updatePromptStatus(prompt_id, "completed", result);
 
-    const { error } = await supabase
-      .from("prompts")
-      .update({
-        status: "completed",
-        figma_file_url: result.figma_file_url,
-        response: result,
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", prompt_id);
+    return res.json({
+      success: true,
+      figma_file_url: result.figma_file_url,
+    });
 
-    if (error) {
-      console.error("❌ DB update HATASI:", error);
-
-      await supabase
-        .from("prompts")
-        .update({ status: "failed" })
-        .eq("id", prompt_id);
-
-      return;
-    }
-
-    console.log("✅ Job TAMAMLANDI:", prompt_id);
   } catch (err) {
     console.error("❌ Figma job FAILED:", err);
 
-    await supabase
-      .from("prompts")
-      .update({ status: "failed" })
-      .eq("id", prompt_id);
+    // 🔹 ÖNEMLİ: HATAYI DA SUPABASE'E YAZIYORUZ
+    await updatePromptStatus(prompt_id, "failed", {
+      error: err.message || "Unknown error",
+    });
+
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
   }
 });
 
