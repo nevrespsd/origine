@@ -1,90 +1,73 @@
 const FIGMA_API = "https://api.figma.com/v1";
 
-// === SENİN TEMPLATE KEY'İN ===
-const TEMPLATE_FILE_KEY = "m52UZKuumey6VMJHktCUQ8";
+const TEMPLATE_FILE_KEY = "m52UZKuumey6VMJHktCUQ8"; // <-- SENİN TEAM DOSYAN
 
-console.log("FIGMA_TOKEN mevcut mu?:", !!process.env.FIGMA_TOKEN);
-console.log("FIGMA_TOKEN uzunluğu:", process.env.FIGMA_TOKEN?.length);
+export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
+  console.log("=== Figma Agent Başladı ===");
+  console.log({ prompt_id, brand, prompt, plan_type });
 
-async function duplicateFigmaFile(templateKey, newName) {
-  console.log("Template duplicate çağrısı atılıyor:", templateKey);
+  console.log("FIGMA_TOKEN mevcut mu?:", !!process.env.FIGMA_TOKEN);
+  console.log("FIGMA_TOKEN uzunluğu:", process.env.FIGMA_TOKEN?.length);
 
-  const res = await fetch(
-    `${FIGMA_API}/files/${templateKey}/duplicate`,
+  // 1) TEMPLATE DOSYASINI DUPLICATE ET
+  const duplicateRes = await fetch(
+    `${FIGMA_API}/files/${TEMPLATE_FILE_KEY}/duplicate`,
     {
       method: "POST",
       headers: {
         "X-Figma-Token": process.env.FIGMA_TOKEN,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name: newName }),
+      body: JSON.stringify({
+        name: `Origine - ${brand} - ${prompt_id}`,
+      }),
     }
   );
 
-  const data = await res.json();
+  const status = duplicateRes.status;
+  const data = await duplicateRes.json();
 
-  console.log("Duplicate HTTP Status:", res.status);
-  console.log("Duplicate Raw Response:", JSON.stringify(data, null, 2));
+  console.log("Duplicate HTTP Status:", status);
+  console.log("Duplicate Response:", JSON.stringify(data, null, 2));
 
-  // 🔹 BURASI DÜZELTİLDİ — Figma'nın GERÇEK yapısını okuyoruz
   const fileKey = data?.key;
 
   if (!fileKey) {
     throw new Error(
-      "Figma duplicate yanıtında key yok:\n" +
+      "Figma fileKey bulunamadı! Yanıt:\n" +
         JSON.stringify(data, null, 2)
     );
   }
 
-  return fileKey;
-}
+  console.log("Yeni dosya oluşturuldu. fileKey:", fileKey);
 
-export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
-  console.log("=== Figma Agent Başladı ===");
-  console.log({ prompt_id, brand, prompt, plan_type });
-
-  if (!process.env.FIGMA_TOKEN) {
-    throw new Error("FIGMA_TOKEN environment variable yok!");
-  }
-
-  // 1) TEMPLATE'İ DUPLICATE ET
-  const newFileKey = await duplicateFigmaFile(
-    TEMPLATE_FILE_KEY,
-    `Origine — ${brand} — ${prompt_id}`
-  );
-
-  console.log("Yeni oluşturulan fileKey:", newFileKey);
-
-  // 2) (Opsiyonel) Yeni dosyaya Frame ekleme denemesi
+  // 2) (Opsiyonel) Frame ekleme örneği
   try {
-    const patchRes = await fetch(
-      `${FIGMA_API}/files/${newFileKey}/nodes`,
-      {
-        method: "POST",
-        headers: {
-          "X-Figma-Token": process.env.FIGMA_TOKEN,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ops: [
-            {
-              op: "add",
-              path: "document/children",
-              value: {
-                type: "FRAME",
-                name: `Brand Kit — ${brand}`,
-                absoluteBoundingBox: {
-                  x: 0,
-                  y: 0,
-                  width: 1440,
-                  height: 1024,
-                },
+    const patchRes = await fetch(`${FIGMA_API}/files/${fileKey}`, {
+      method: "PATCH",
+      headers: {
+        "X-Figma-Token": process.env.FIGMA_TOKEN,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ops: [
+          {
+            op: "add",
+            path: "document/children",
+            value: {
+              type: "FRAME",
+              name: `Brand Kit - ${brand}`,
+              absoluteBoundingBox: {
+                x: 0,
+                y: 0,
+                width: 1440,
+                height: 1024,
               },
             },
-          ],
-        }),
-      }
-    );
+          },
+        ],
+      }),
+    });
 
     console.log("Frame ekleme status:", patchRes.status);
   } catch (e) {
@@ -92,9 +75,9 @@ export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
   }
 
   return {
-    message: "Figma file duplicated & initialized",
-    figma_file_url: `https://www.figma.com/file/${newFileKey}`,
-    file_key: newFileKey,
+    message: "Figma file duplicated",
+    figma_file_url: `https://www.figma.com/file/${fileKey}`,
+    file_key: fileKey,
     created_for: brand,
     plan: plan_type,
   };
