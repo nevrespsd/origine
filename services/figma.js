@@ -2,18 +2,18 @@ const FIGMA_API = "https://api.figma.com/v1";
 
 export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
   const TOKEN = process.env.FIGMA_TOKEN;
-  const TEAM_ID = process.env.FIGMA_TEAM_ID;
+  const PROJECT_ID = process.env.FIGMA_PROJECT_ID;
 
   if (!TOKEN) throw new Error("FIGMA_TOKEN yok!");
-  if (!TEAM_ID) throw new Error("FIGMA_TEAM_ID yok!");
+  if (!PROJECT_ID) throw new Error("FIGMA_PROJECT_ID yok!");
 
   console.log("=== Figma Agent Başladı ===");
   console.log({ prompt_id, brand, prompt, plan_type });
 
-  // 1) TEAM İÇİNDE YENİ DOSYA OLUŞTUR (DOĞRU ENDPOINT)
-  console.log("→ Team içinde yeni Figma dosyası oluşturuluyor...");
+  // 1) PROJECT İÇİNDE YENİ DOSYA OLUŞTUR (DOĞRU YOL)
+  console.log("→ Project içinde yeni Figma dosyası oluşturuluyor...");
 
-  const createRes = await fetch(`${FIGMA_API}/teams/${TEAM_ID}/files`, {
+  const createRes = await fetch(`${FIGMA_API}/projects/${PROJECT_ID}/files`, {
     method: "POST",
     headers: {
       "X-Figma-Token": TOKEN,
@@ -66,7 +66,7 @@ export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
   console.log("Frame ekleme status:", patchRes.status);
 
   return {
-    message: "Figma file created in team",
+    message: "Figma file created in project",
     figma_file_url: `https://www.figma.com/design/${newFileKey}`,
     file_key: newFileKey,
   };
