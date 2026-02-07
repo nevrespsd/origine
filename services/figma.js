@@ -1,45 +1,24 @@
 const FIGMA_API = "https://api.figma.com/v1";
 
-// SENİN TEMPLATE KEY (team’deki dosya)
-const TEMPLATE_FILE_KEY = "m52UZKuumey6VMJHktCUQ8";
-
 export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
-  console.log("=== Figma Agent (SAFE MODE) Başladı ===");
-  console.log({ prompt_id, brand, prompt, plan_type });
-
   const TOKEN = process.env.FIGMA_TOKEN;
   if (!TOKEN) throw new Error("FIGMA_TOKEN yok!");
 
-  // 1) TEMPLATE DOSYASINI OKU (BU SENDE ZATEN ÇALIŞIYOR)
-  console.log("→ Template okunuyor...");
+  console.log("=== Figma Agent Başladı ===");
+  console.log({ prompt_id, brand, prompt, plan_type });
 
-  const templateRes = await fetch(`${FIGMA_API}/files/${TEMPLATE_FILE_KEY}`, {
-    headers: {
-      "X-Figma-Token": TOKEN,
-      "Accept": "application/json"
-    }
-  });
-
-  if (templateRes.status !== 200) {
-    const txt = await templateRes.text();
-    throw new Error(`Template okunamadı: ${templateRes.status} - ${txt}`);
-  }
-
-  const templateData = await templateRes.json();
-  console.log("Template okundu ✅");
-
-  // 2) YENİ BOŞ FİGMA DOSYASI OLUŞTUR
+  // 1) YENİ FİGMA DOSYASI AÇ
   console.log("→ Yeni Figma dosyası oluşturuluyor...");
 
   const createRes = await fetch(`${FIGMA_API}/files`, {
     method: "POST",
     headers: {
       "X-Figma-Token": TOKEN,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      name: `Origine - ${brand} - ${prompt_id}`
-    })
+      name: `Origine — ${brand} — ${prompt_id}`,
+    }),
   });
 
   if (createRes.status !== 200) {
@@ -52,33 +31,38 @@ export async function runFigmaAgent({ prompt_id, brand, prompt, plan_type }) {
 
   console.log("Yeni dosya key:", newFileKey);
 
-  // 3) TEMPLATE’İN DOKÜMANINI YENİ DOSYAYA KOPYALA (CRUCIAL PART)
-  console.log("→ Template içeriği yeni dosyaya kopyalanıyor...");
+  // 2) ANA FRAME EKLE
+  console.log("→ Ana Frame ekleniyor...");
 
-  const patchRes = await fetch(`${FIGMA_API}/files/${newFileKey}`, {
+  await fetch(`${FIGMA_API}/files/${newFileKey}`, {
     method: "PATCH",
     headers: {
       "X-Figma-Token": TOKEN,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       ops: [
         {
-          op: "replace",
-          path: "document",
-          value: templateData.document
-        }
-      ]
-    })
+          op: "add",
+          path: "document/children",
+          value: {
+            type: "FRAME",
+            name: `Brand Kit — ${brand}`,
+            absoluteBoundingBox: {
+              x: 0,
+              y: 0,
+              width: 1440,
+              height: 1024,
+            },
+          },
+        },
+      ],
+    }),
   });
 
-  console.log("Patch status:", patchRes.status);
-
   return {
-    message: "Figma file created from template",
+    message: "Figma file created",
     figma_file_url: `https://www.figma.com/design/${newFileKey}`,
     file_key: newFileKey,
-    created_for: brand,
-    plan: plan_type
   };
 }
