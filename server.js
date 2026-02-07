@@ -8,7 +8,7 @@ app.use(express.json());
 const supabase = createSupabaseClient();
 
 app.get("/", (req, res) => {
-  res.json({ status: "origine-agent running (Boxy mode)" });
+  res.json({ status: "origine-agent running (Boxy full mode)" });
 });
 
 app.post("/run-agent", async (req, res) => {
@@ -16,7 +16,6 @@ app.post("/run-agent", async (req, res) => {
 
   console.log("\n=== /run-agent TETİKLENDİ ===", req.body);
 
-  // Railway timeout yemesin diye hemen cevap dön
   res.json({ accepted: true, prompt_id });
 
   try {
@@ -24,12 +23,11 @@ app.post("/run-agent", async (req, res) => {
 
     const result = await runBoxyAgent({ prompt_id, brand, prompt });
 
-    console.log("→ Boxy Agent sonucu:", result);
-
     await supabase
       .from("prompts")
       .update({
         status: "completed",
+        assets: result.assets,
         response: result,
         completed_at: new Date().toISOString(),
       })

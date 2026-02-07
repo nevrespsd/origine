@@ -6,3 +6,5 @@ export function createSupabaseClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 }
+
+export const STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
