@@ -1,6 +1,6 @@
 import express from "express";
 import { createSupabaseClient } from "./services/supabase.js";
-import { runFigmaAgent } from "./services/figma.js";
+import { runBoxyAgent } from "./services/boxy.js";
 
 const app = express();
 app.use(express.json());
@@ -8,36 +8,28 @@ app.use(express.json());
 const supabase = createSupabaseClient();
 
 app.get("/", (req, res) => {
-  res.json({ status: "origine-agent running" });
+  res.json({ status: "origine-agent running (Boxy mode)" });
 });
 
 app.post("/run-agent", async (req, res) => {
-  const { prompt_id, brand, prompt, plan_type } = req.body;
+  const { prompt_id, brand, prompt } = req.body;
 
-  console.log("\n=== /run-agent TETİKLENDİ ===");
-  console.log("Payload:", req.body);
+  console.log("\n=== /run-agent TETİKLENDİ ===", req.body);
 
   // Railway timeout yemesin diye hemen cevap dön
   res.json({ accepted: true, prompt_id });
 
   try {
-    console.log("→ Figma Agent başlıyor...");
+    console.log("→ Boxy Agent başlıyor...");
 
-    const result = await runFigmaAgent({
-      prompt_id,
-      brand,
-      prompt,
-      plan_type,
-    });
+    const result = await runBoxyAgent({ prompt_id, brand, prompt });
 
-    console.log("→ Figma Agent sonucu:", result);
+    console.log("→ Boxy Agent sonucu:", result);
 
-    // Supabase'e completed yaz
     await supabase
       .from("prompts")
       .update({
         status: "completed",
-        figma_file_url: result.figma_file_url,
         response: result,
         completed_at: new Date().toISOString(),
       })
@@ -46,7 +38,7 @@ app.post("/run-agent", async (req, res) => {
     console.log("✅ Job TAMAMLANDI:", prompt_id);
 
   } catch (err) {
-    console.error("❌ Figma job FAILED:", err);
+    console.error("❌ Boxy job FAILED:", err);
 
     await supabase
       .from("prompts")
