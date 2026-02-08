@@ -1,19 +1,23 @@
 import express from "express";
-import bodyParser from "body-parser";
 import { runBoxyAgent } from "./services/boxy.js";
 import { createSupabaseClient } from "./services/supabase.js";
 
 const app = express();
-app.use(bodyParser.json());
+app.use(express.json());
 
 app.post("/run-agent", async (req, res) => {
   console.log("=== /run-agent TETİKLENDİ ===", req.body);
 
   const { prompt_id, user_id, brand, prompt, plan_type } = req.body;
 
-  try {
-    const supabase = createSupabaseClient();
+  if (!prompt_id) {
+    return res.status(400).json({ error: "prompt_id missing" });
+  }
 
+  const supabase = createSupabaseClient();
+
+  try {
+    // 1️⃣ Boxy agent’ı çalıştır
     const result = await runBoxyAgent({
       prompt_id,
       user_id,
@@ -22,34 +26,45 @@ app.post("/run-agent", async (req, res) => {
       plan_type,
     });
 
-    // Supabase row update → completed
-    await supabase
-  .from("prompts")
-  .update({
-    status: "completed",
-    svg_url: result.svg_url,
-    png_url: result.png_url,
-    updated_at: new Date().toISOString(),
-  })
-  .eq("id", prompt_id);
+    console.log("Boxy sonucu:", result);
 
-
-    res.json({ success: true, ...result });
-  } catch (err) {
-    console.error("❌ Agent hata:", err);
-
-    await createSupabaseClient()
+    // 2️⃣ Supabase’ı MUTLAKA güncelle (pending → completed)
+    const { error } = await supabase
       .from("prompts")
       .update({
-        status: "failed",
-        error_message: err.message,
+        status: "completed",
+        svg_url: result.svg_url,
+        png_url: result.png_url,
         updated_at: new Date().toISOString(),
       })
       .eq("id", prompt_id);
 
-    res.status(500).json({ error: err.message });
+    if (error) {
+      console.error("Supabase update hatası:", error);
+      return res.status(500).json({ error: "Supabase update failed" });
+    }
+
+    console.log("Supabase updated to completed:", prompt_id);
+
+    return res.json({
+      success: true,
+      prompt_id,
+      svg_url: result.svg_url,
+      png_url: result.png_url,
+    });
+
+  } catch (err) {
+    console.error("Agent hata:", err);
+    await supabase
+      .from("prompts")
+      .update({ status: "failed" })
+      .eq("id", prompt_id);
+
+    return res.status(500).json({
+      error: err.message || "Agent failed",
+    });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Agent running on port ${PORT}`));
+app.listen(3000, () => console.log("Agent running on port 3000"));
+

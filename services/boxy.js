@@ -13,26 +13,33 @@ export async function runBoxyAgent({
   plan_type,
 }) {
   console.log("=== BOXY AGENT BAŞLADI ===");
+  console.log({ prompt_id, brand, prompt, plan_type });
 
   const supabase = createSupabaseClient();
 
-  // 1) LOGO SVG üret
+  if (!prompt_id) {
+    throw new Error("prompt_id is required");
+  }
+
+  // 1️⃣ LOGO SVG ÜRET
   const svg = generateLogoSVG({ brand, prompt });
 
+  // Railway’de yazılabilir tek klasör genelde /tmp
   const tmpDir = "/tmp";
   const svgPath = path.join(tmpDir, `${prompt_id}.svg`);
   const pngPath = path.join(tmpDir, `${prompt_id}.png`);
 
   fs.writeFileSync(svgPath, svg, "utf8");
 
-  // 2) SVG → PNG (PDF TAMAMEN YOK)
+  // 2️⃣ SVG → PNG
   await sharp(Buffer.from(svg))
     .png()
     .toFile(pngPath);
 
-  // 3) Supabase Storage’a yükle (sadece SVG + PNG)
+  // 3️⃣ Supabase Storage’a yükle (SVG + PNG)
   const upload = async (filePath, contentType) => {
     const file = fs.readFileSync(filePath);
+
     const { data, error } = await supabase.storage
       .from(BUCKET)
       .upload(`${prompt_id}/${path.basename(filePath)}`, file, {
@@ -40,20 +47,29 @@ export async function runBoxyAgent({
         upsert: true,
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Storage upload error:", error);
+      throw error;
+    }
 
+    // Public URL üret
     return `${process.env.SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${data.path}`;
   };
 
   const svg_url = await upload(svgPath, "image/svg+xml");
   const png_url = await upload(pngPath, "image/png");
 
-  console.log("✅ Brand kit üretildi! (PDF yok)");
+  console.log("✅ Brand kit üretildi! (SVG + PNG)");
 
   return { svg_url, png_url };
 }
 
+/**
+ * 🔹 GERÇEK LOGO ÜRETEN SVG
+ * (artboard değil — tek parça logo + wordmark)
+ */
 function generateLogoSVG({ brand, prompt }) {
+  // Basit ama gerçek vektörel logo şablonu
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="800" height="400" viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg">
 
@@ -64,12 +80,14 @@ function generateLogoSVG({ brand, prompt }) {
     </linearGradient>
   </defs>
 
-  <g transform="translate(200,200)">
-    <circle cx="0" cy="0" r="80" fill="url(#grad1)" opacity="0.9"/>
-    <circle cx="60" cy="0" r="80" fill="none" stroke="#00A3FF" stroke-width="6"/>
+  <!-- Logo Mark -->
+  <g transform="translate(220,200)">
+    <circle cx="0" cy="0" r="80" fill="url(#grad1)" opacity="0.95"/>
+    <circle cx="55" cy="0" r="80" fill="none" stroke="#00A3FF" stroke-width="6"/>
   </g>
 
-  <text x="400" y="230"
+  <!-- Wordmark -->
+  <text x="420" y="230"
         font-family="Inter, Arial, sans-serif"
         font-size="64"
         font-weight="700"
@@ -77,7 +95,8 @@ function generateLogoSVG({ brand, prompt }) {
     ${brand}
   </text>
 
-  <text x="400" y="280"
+  <!-- Prompt as subtle tagline -->
+  <text x="420" y="280"
         font-family="Inter, Arial, sans-serif"
         font-size="18"
         fill="#555">
