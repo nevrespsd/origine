@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
-import fetch from "node-fetch";
 import { createSupabaseClient } from "./supabase.js";
 
 const BUCKET = "brand-kits";
@@ -17,27 +16,21 @@ export async function runBoxyAgent({
 
   const supabase = createSupabaseClient();
 
-  // 1) Gerçek bir logo SVG üret
+  // 1) LOGO SVG üret
   const svg = generateLogoSVG({ brand, prompt });
 
   const tmpDir = "/tmp";
   const svgPath = path.join(tmpDir, `${prompt_id}.svg`);
   const pngPath = path.join(tmpDir, `${prompt_id}.png`);
-  const pdfPath = path.join(tmpDir, `${prompt_id}.pdf`);
 
   fs.writeFileSync(svgPath, svg, "utf8");
 
-  // 2) SVG → PNG
+  // 2) SVG → PNG (PDF TAMAMEN YOK)
   await sharp(Buffer.from(svg))
     .png()
     .toFile(pngPath);
 
-  // 3) SVG → PDF (basit vektör export)
-  await sharp(Buffer.from(svg))
-    .pdf()
-    .toFile(pdfPath);
-
-  // 4) Supabase Storage’a yükle
+  // 3) Supabase Storage’a yükle (sadece SVG + PNG)
   const upload = async (filePath, contentType) => {
     const file = fs.readFileSync(filePath);
     const { data, error } = await supabase.storage
@@ -54,16 +47,12 @@ export async function runBoxyAgent({
 
   const svg_url = await upload(svgPath, "image/svg+xml");
   const png_url = await upload(pngPath, "image/png");
-  const pdf_url = await upload(pdfPath, "application/pdf");
 
-  console.log("✅ Brand kit üretildi!");
+  console.log("✅ Brand kit üretildi! (PDF yok)");
 
-  return { svg_url, png_url, pdf_url };
+  return { svg_url, png_url };
 }
 
-/**
- * 🔹 GERÇEK LOGO ÜRETEN SVG
- */
 function generateLogoSVG({ brand, prompt }) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="800" height="400" viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg">
@@ -75,13 +64,11 @@ function generateLogoSVG({ brand, prompt }) {
     </linearGradient>
   </defs>
 
-  <!-- Logo Mark -->
   <g transform="translate(200,200)">
     <circle cx="0" cy="0" r="80" fill="url(#grad1)" opacity="0.9"/>
     <circle cx="60" cy="0" r="80" fill="none" stroke="#00A3FF" stroke-width="6"/>
   </g>
 
-  <!-- Wordmark -->
   <text x="400" y="230"
         font-family="Inter, Arial, sans-serif"
         font-size="64"
@@ -90,7 +77,6 @@ function generateLogoSVG({ brand, prompt }) {
     ${brand}
   </text>
 
-  <!-- Tagline -->
   <text x="400" y="280"
         font-family="Inter, Arial, sans-serif"
         font-size="18"

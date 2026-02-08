@@ -24,15 +24,15 @@ app.post("/run-agent", async (req, res) => {
 
     // Supabase row update → completed
     await supabase
-      .from("prompts")
-      .update({
-        status: "completed",
-        svg_url: result.svg_url,
-        png_url: result.png_url,
-        pdf_url: result.pdf_url,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", prompt_id);
+  .from("prompts")
+  .update({
+    status: "completed",
+    svg_url: result.svg_url,
+    png_url: result.png_url,
+    updated_at: new Date().toISOString(),
+  })
+  .eq("id", prompt_id);
+
 
     res.json({ success: true, ...result });
   } catch (err) {
