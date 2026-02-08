@@ -1,51 +1,26 @@
-import "dotenv/config";
 import express from "express";
-import { createSupabaseClient } from "./services/supabase.js";
+import bodyParser from "body-parser";
 import { runBoxyAgent } from "./services/boxy.js";
 
 const app = express();
-app.use(express.json());
-
-const supabase = createSupabaseClient();
-
-app.get("/", (req, res) => {
-  res.json({ status: "origine-agent running (Boxy full mode)" });
-});
+app.use(bodyParser.json());
 
 app.post("/run-agent", async (req, res) => {
   const { prompt_id, brand, prompt } = req.body;
 
-  console.log("\n=== /run-agent TETİKLENDİ ===", req.body);
-
-  res.json({ accepted: true, prompt_id });
+  console.log("=== /run-agent TETİKLENDİ ===", req.body);
 
   try {
-    console.log("→ Boxy Agent başlıyor...");
-
     const result = await runBoxyAgent({ prompt_id, brand, prompt });
 
-    await supabase
-      .from("prompts")
-      .update({
-        status: "completed",
-        assets: result.assets,
-        response: result,
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", prompt_id);
-
-    console.log("✅ Job TAMAMLANDI:", prompt_id);
+    res.json({
+      success: true,
+      ...result
+    });
 
   } catch (err) {
-    console.error("❌ Boxy job FAILED:", err);
-
-    await supabase
-      .from("prompts")
-      .update({
-        status: "failed",
-        response: { error: err.message || "Unknown error" },
-      })
-      .eq("id", prompt_id);
+    console.error("Boxy job failed:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
