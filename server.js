@@ -1,25 +1,52 @@
 import express from "express";
 import bodyParser from "body-parser";
 import { runBoxyAgent } from "./services/boxy.js";
+import { createSupabaseClient } from "./services/supabase.js";
 
 const app = express();
 app.use(bodyParser.json());
 
 app.post("/run-agent", async (req, res) => {
-  const { prompt_id, brand, prompt } = req.body;
-
   console.log("=== /run-agent TETİKLENDİ ===", req.body);
 
-  try {
-    const result = await runBoxyAgent({ prompt_id, brand, prompt });
+  const { prompt_id, user_id, brand, prompt, plan_type } = req.body;
 
-    res.json({
-      success: true,
-      ...result
+  try {
+    const supabase = createSupabaseClient();
+
+    const result = await runBoxyAgent({
+      prompt_id,
+      user_id,
+      brand,
+      prompt,
+      plan_type,
     });
 
+    // Supabase row update → completed
+    await supabase
+      .from("prompts")
+      .update({
+        status: "completed",
+        svg_url: result.svg_url,
+        png_url: result.png_url,
+        pdf_url: result.pdf_url,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", prompt_id);
+
+    res.json({ success: true, ...result });
   } catch (err) {
-    console.error("Boxy job failed:", err);
+    console.error("❌ Agent hata:", err);
+
+    await createSupabaseClient()
+      .from("prompts")
+      .update({
+        status: "failed",
+        error_message: err.message,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", prompt_id);
+
     res.status(500).json({ error: err.message });
   }
 });
