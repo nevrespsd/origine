@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import { createSupabaseClient } from "./services/supabase.js";
 import { runBoxyAgent } from "./services/boxy.js";
